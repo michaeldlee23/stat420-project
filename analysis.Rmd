@@ -1,0 +1,27 @@
+---
+title: "STAT 420 — Project"
+author: "Winston Chen, Daniel hooks, Naidan Ganbold, Erik Janc, Michael Lee"
+date: "November 19, 2021"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+library(finalfit)
+library(knitr)
+library(tidyverse)
+library(tidyquant)
+
+knitr::opts_chunk$set(echo=TRUE, error=TRUE, eval=TRUE)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+```
+## Introduction
+## Exploratory Data Analysis
+Read the initial CSV file:
+```{r}
+pollution = read.csv("./data/pollution_us_2000_2016.csv")
+```
+
+## Forecasting
+
+## Conclusion
