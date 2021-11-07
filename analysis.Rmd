@@ -16,11 +16,49 @@ knitr::opts_chunk$set(echo=TRUE, error=TRUE, eval=TRUE)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 ```
 ## Introduction
-## Exploratory Data Analysis
+
+## Data Preprocessing
 Read the initial CSV file:
 ```{r}
-pollution = read.csv("./data/pollution_us_2000_2016.csv")
+pollution_raw = read.csv(
+  "./data/pollution_us_2000_2016.csv",
+  header=TRUE,
+)
+colnames(pollution)
 ```
+Only include records for the following cities:
+
+* Chicago
+* Denver
+* Los Angeles
+* New York City
+
+Additionally, for ease of viewing, drop irrelevant columns that we are not analyzing.
+```{r}
+pollution = subset(
+  pollution_raw,
+  pollution_raw$City %in% c("Chicago", "Denver", "Los Angeles", "New York City"),
+  drop=TRUE
+)
+
+#cols = c("State", "County", "City", "Date.Local", "NO2.Units", "NO2.Mean", "O3.Units", "O3.Mean", "SO2.Units", "SO2.Mean", "CO.Units", "CO.Mean")
+cols = c("City", "Date.Local", "NO2.Mean", "O3.Mean", "SO2.Mean", "CO.Mean")
+pollution = pollution[cols]
+head(pollution)
+```
+Note that the we have the following units for each pollutant measurement, which we drop from the table for brevity:
+
+* NO2 : parts per billion
+* O3 : parts per million
+* SO2 : parts per billion
+* CO : parts per million
+
+For each city, each day includes four separate rows with differing measurements. We only consider one measurement per day, and drop the rest.
+```{r}
+
+```
+
+## Exploratory Data Analysis
 
 ## Forecasting
 
