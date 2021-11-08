@@ -24,20 +24,20 @@ pollution_raw = read.csv(
   "./data/pollution_us_2000_2016.csv",
   header=TRUE,
 )
-colnames(pollution)
+colnames(pollution_raw)
 ```
 Only include records for the following cities:
 
-* Chicago
-* Denver
 * Los Angeles
-* New York City
+* New York
 
 Additionally, for ease of viewing, drop irrelevant columns that we are not analyzing.
 ```{r}
+#cities = c("Dallas", "Pheonix", "Los Angeles", "New York", "Vandenberg Air Force Base")
+cities = c("Los Angeles", "New York")
 pollution = subset(
   pollution_raw,
-  pollution_raw$City %in% c("Chicago", "Denver", "Los Angeles", "New York City"),
+  pollution_raw$City %in% cities,
   drop=TRUE
 )
 
@@ -53,12 +53,34 @@ Note that the we have the following units for each pollutant measurement, which 
 * SO2 : parts per billion
 * CO : parts per million
 
-For each city, each day includes four separate rows with differing measurements. We only consider one measurement per day, and drop the rest.
+For each city, each day includes four separate rows with differing measurements. We average the columns so that there is only one measurement per day.
 ```{r}
-
+pollution = pollution %>% 
+  group_by(City, Date.Local) %>%
+  summarize_each(mean)
+pollution$Date.Local = as.Date(pollution$Date.Local, format="%Y-%m-%d")
+head(pollution)
 ```
 
 ## Exploratory Data Analysis
+
+```{r}
+plot_city = function(city, pollutant) {
+  plot(
+    pollution[pollution$City==city,]$Date.Local,
+    pollution[pollution$City==city,][[pollutant]],
+    xlab="Year",
+    ylab="Mean CO (parts per million)",
+    type='l',
+    main=paste(city, pollutant)
+  )
+}
+
+plot_city("Los Angeles", "CO.Mean")
+```
+```{r}
+plot_city("New York", "CO.Mean")
+```
 
 ## Forecasting
 
