@@ -111,7 +111,7 @@ plot_single = function(ts, city_idx, pollutant_idx) {
   ) + labs(
     x="Year",
     y=paste(pollutants[pollutant_idx], units[pollutant_idx]),
-    title=paste(cities[city_idx], pollutant[pollutant_idx])
+    title=paste(cities[city_idx], pollutants[pollutant_idx])
   )
 }
 
@@ -124,14 +124,14 @@ plot_together = function(ts1, ts2, pollutant_idx) {
   ) + labs(
     x="Year",
     y=paste(pollutants[pollutant_idx], units[pollutant_idx]),
-    title=paste(cities[1], pollutant[pollutant_idx])
+    title=paste(cities[1], pollutants[pollutant_idx])
   )
   p2 = autoplot(
     ts2
   ) + labs(
     x="Year",
     y=paste(pollutants[pollutant_idx], units[pollutant_idx]),
-    title=paste(cities[2], pollutant[pollutant_idx])
+    title=paste(cities[2], pollutants[pollutant_idx])
   )
   gridExtra::grid.arrange(p1, p2, nrow=2, ncol=1)
 }
