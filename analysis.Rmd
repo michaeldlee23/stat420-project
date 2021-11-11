@@ -33,7 +33,7 @@ Only include records for the following cities:
 
 Additionally, for ease of viewing, drop irrelevant columns that we are not analyzing.
 ```{r}
-#cities = c("Dallas", "Pheonix", "Los Angeles", "New York", "Vandenberg Air Force Base")
+# Subset on relevant cities
 cities = c("Los Angeles", "New York")
 pollution = subset(
   pollution_raw,
@@ -41,7 +41,7 @@ pollution = subset(
   drop=TRUE
 )
 
-#cols = c("State", "County", "City", "Date.Local", "NO2.Units", "NO2.Mean", "O3.Units", "O3.Mean", "SO2.Units", "SO2.Mean", "CO.Units", "CO.Mean")
+# Subset on relevant columns
 cols = c("City", "Date.Local", "NO2.Mean", "O3.Mean", "SO2.Mean", "CO.Mean")
 pollution = pollution[cols]
 head(pollution)
@@ -55,33 +55,138 @@ Note that the we have the following units for each pollutant measurement, which 
 
 For each city, each day includes four separate rows with differing measurements. We average the columns so that there is only one measurement per day.
 ```{r}
+# Group by city and date, average columns
 pollution = pollution %>% 
   group_by(City, Date.Local) %>%
   summarize_each(mean)
 pollution$Date.Local = as.Date(pollution$Date.Local, format="%Y-%m-%d")
 head(pollution)
 ```
+We expect to see annual seasonality, and in order to appropriately model this, we would require a lag of 365. However, due to a limitation of R that does not allow lag of more than 350 and implementing our own ARIMA method is out of scope of this project. Thus, we instead aggregate on a monthly basis so we can apply a lag of 12 to model annual seasonality.
+```{r}
+# Aggregate daily data into monthly data
+# Save as separate dataframes for each pollutant in each city
+aggregate_monthly = function(city, pollutant_idx) {
+  df = pollution[pollution$City==city,]
+  df$Month = months(df$Date.Local)
+  df$Year = format(df$Date.Local, format="%Y")
+  if (pollutant_idx == 1) {
+    df = aggregate(NO2.Mean ~ Month + Year, df, mean)
+    df$Date.Local = as.Date(paste(df$Year, df$Month, "1"), format="%Y %b %d")
+    return(xts(df$NO2.Mean, order.by=df$Date.Local))
+  } else if (pollutant_idx == 2) {
+    df = aggregate(O3.Mean ~ Month + Year, df, mean)
+    df$Date.Local = as.Date(paste(df$Year, df$Month, "1"), format="%Y %b %d")
+    return(xts(df$O3.Mean, order.by=df$Date.Local))
+  } else if (pollutant_idx == 3) {
+    df = aggregate(SO2.Mean ~ Month + Year, df, mean)
+    df$Date.Local = as.Date(paste(df$Year, df$Month, "1"), format="%Y %b %d")
+    return(xts(df$SO2.Mean, order.by=df$Date.Local))
+  } else {
+    df = aggregate(CO.Mean ~ Month + Year, df, mean)
+    df$Date.Local = as.Date(paste(df$Year, df$Month, "1"), format="%Y %b %d")
+    return(xts(df$CO.Mean, order.by=df$Date.Local))
+  }
+}
 
+NY.NO2 = aggregate_monthly("New York", 1)
+NY.O3 = aggregate_monthly("New York", 2)
+NY.SO2 = aggregate_monthly("New York", 3)
+NY.CO = aggregate_monthly("New York", 4)
+LA.NO2 = aggregate_monthly("Los Angeles", 1)
+LA.O3 = aggregate_monthly("Los Angeles", 2)
+LA.SO2 = aggregate_monthly("Los Angeles", 3)
+LA.CO = aggregate_monthly("Los Angeles", 4)
+```
 ## Exploratory Data Analysis
 
 ```{r}
-plot_city = function(city, pollutant) {
-  plot(
-    pollution[pollution$City==city,]$Date.Local,
-    pollution[pollution$City==city,][[pollutant]],
-    xlab="Year",
-    ylab="Mean CO (parts per million)",
-    type='l',
-    main=paste(city, pollutant)
+# Plot time series helpers
+plot_single = function(ts, city_idx, pollutant_idx) {
+  cities = c("New York", "Los Angeles")
+  pollutants = c("NO2", "O3", "SO2", "CO")
+  units = c("(parts per billion)", "(parts per million)", "(parts per billion)", "(parts per million)")
+  autoplot(
+    ts
+  ) + labs(
+    x="Year",
+    y=paste(pollutants[pollutant_idx], units[pollutant_idx]),
+    title=paste(cities[city_idx], pollutant[pollutant_idx])
   )
 }
 
-plot_city("Los Angeles", "CO.Mean")
+plot_together = function(ts1, ts2, pollutant_idx) {
+  cities = c("New York", "Los Angeles")
+  pollutants = c("NO2", "O3", "SO2", "CO")
+  units = c("(parts per billion)", "(parts per million)", "(parts per billion)", "(parts per million)")
+  p1 = autoplot(
+    ts1
+  ) + labs(
+    x="Year",
+    y=paste(pollutants[pollutant_idx], units[pollutant_idx]),
+    title=paste(cities[1], pollutant[pollutant_idx])
+  )
+  p2 = autoplot(
+    ts2
+  ) + labs(
+    x="Year",
+    y=paste(pollutants[pollutant_idx], units[pollutant_idx]),
+    title=paste(cities[2], pollutant[pollutant_idx])
+  )
+  gridExtra::grid.arrange(p1, p2, nrow=2, ncol=1)
+}
+```
+
+```{r}
+plot_together(NY.NO2, LA.NO2, 1)
+```
+
+```{r}
+plot_together(NY.O3, LA.O3, 2)
+```
+
+```{r}
+plot_together(NY.SO2, LA.SO2, 3)
+```
+
+```{r}
+plot_together(NY.CO, LA.CO, 4)
+```
+
+```{r}
+plot_single(NY.O3, 1, 1)
+
+NY.O3.ddy = diff(diff(log(NY.O3)), 12)[-c(seq(1, 13))]
+plot_single(NY.O3.ddy, 1, 1)
 ```
 ```{r}
-plot_city("New York", "CO.Mean")
+acf(NY.O3.ddy, lag.max=50)
+pacf(NY.O3.ddy, lag.max=50)
+```
+```{r}
+# Create various models and compare their AIC
+arima(log(NY.O3), order=c(0, 1, 1), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(NY.O3), order=c(0, 1, 2), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(NY.O3), order=c(1, 1, 1), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(NY.O3), order=c(1, 1, 2), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(NY.O3), order=c(1, 1, 1), seasonal=list(order=c(1, 1, 1), period=12))$aic
+arima(log(NY.O3), order=c(1, 1, 2), seasonal=list(order=c(1, 1, 1), period=12))$aic
+```
+
+```{r}
+# Select model and perform model diagnostics
+NY.O3.model = arima(log(NY.O3), order=c(1, 1, 1), seasonal=list(order=c(0, 1, 1), period=12))
+plot(NY.O3.model$residuals)
+acf(NY.O3.model$residuals)
+pacf(NY.O3.model$residuals)
+qqnorm(NY.O3.model$residuals)
+qqline(NY.O3.model$residuals)
 ```
 
 ## Forecasting
+```{r}
+forecast = predict(NY.O3.model, n.ahead=12)
+ts.plot(cbind(ts(NY.O3), exp(forecast$pred)), lty=1:2, main="New York O3 Forecast")
+```
 
 ## Conclusion
