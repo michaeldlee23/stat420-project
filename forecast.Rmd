@@ -1,0 +1,97 @@
+---
+title: "STAT 420 — Forecasting"
+author: "Winston Chen, Daniel hooks, Naidan Ganbold, Erik Janc, Michael Lee"
+date: "November 23, 2021"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+library(finalfit)
+library(knitr)
+library(tidyverse)
+library(tidyquant)
+
+knitr::opts_chunk$set(echo=TRUE, error=TRUE, eval=TRUE)
+```
+
+# Important Note
+Run all cells in `analysis.Rmd` to configure workspace environment with series data and helper functions before executing cells in this notebook.
+
+```{r}
+# Define metadata and time series
+test = 2
+
+if (test == 1) {
+  city = "Los Angeles"
+  pollutant = "NO2"
+  series = LA.NO2
+} else if (test == 2) {
+  city = "Los Angeles"
+  pollutant = "O3"
+  series = LA.O3
+} else if (test == 3) {
+  city = "Los Angeles"
+  pollutant = "SO2"
+  series = LA.SO2
+} else if (test == 4) {
+  city = "Los Angeles"
+  pollutant = "CO"
+  series = LA.CO
+} else if (test == 5) {
+  city = "New York"
+  pollutant = "NO2"
+  series = NY.NO2
+} else if (test == 6) {
+  city = "New York"
+  pollutant = "O3"
+  series = NY.O3
+} else if (test == 7) {
+  city = "New York"
+  pollutant = "SO2"
+  series = NY.SO2
+} else if (test == 8) {
+  city = "New York"
+  pollutant = "CO"
+  series = NY.CO
+}
+```
+
+```{r}
+# Visualize time series and differenced time series
+plot_single(series, 1, 1)
+
+ddy = diff(diff(log(series)), 12)[-c(seq(1, 13))]
+plot_single(ddy, 1, 1)
+```
+
+```{r}
+# ACF and PACF of differenced data
+acf(ddy, lag.max=50, main=paste("ACF of differenced", city, pollutant, "levels"))
+pacf(ddy, lag.max=50, main=paste("PACF of differenced", city, pollutant, "levels"))
+```
+
+```{r}
+# Create various models and compare their AIC
+arima(log(series), order=c(0, 1, 1), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(series), order=c(0, 1, 2), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(series), order=c(1, 1, 1), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(series), order=c(1, 1, 2), seasonal=list(order=c(0, 1, 1), period=12))$aic
+arima(log(series), order=c(1, 1, 1), seasonal=list(order=c(1, 1, 1), period=12))$aic
+arima(log(series), order=c(1, 1, 2), seasonal=list(order=c(1, 1, 1), period=12))$aic
+```
+
+```{r}
+# Select model and perform model diagnostics
+model = arima(log(series), order=c(1, 1, 1), seasonal=list(order=c(0, 1, 1), period=12))
+plot(model$residuals)
+acf(model$residuals)
+pacf(model$residuals)
+qqnorm(model$residuals)
+qqline(model$residuals)
+```
+
+```{r}
+forecast = predict(model, n.ahead=12)
+ts.plot(cbind(ts(series), exp(forecast$pred)), lty=1:2, main=paste(city, pollutant, "Forecast"))
+```
